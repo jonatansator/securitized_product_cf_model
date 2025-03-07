@@ -26,4 +26,4 @@
 - **Cash Flow Calculation**: Computes monthly cash flows with adjustable default and prepayment rates, capped by tranche size.
 - **Visualization**: Displays a real-time cash flow waterfall plot with tranche size reference line.
 - **Metrics**: Shows total and average cash flows for the tranche.
-- **Relevance**: Demonstrates technical skills in modeling securitized products and structured credit, aligning with 
+
