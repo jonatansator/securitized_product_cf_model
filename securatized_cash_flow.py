@@ -6,12 +6,13 @@ from tkinter import ttk, messagebox
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 
-# Step 1: Define cash flow calculation function
+# Step 1: Define cash flow calculation function (modified to return components)
 def calc_tranche_cf(balance, rate, term, def_rate, prepay_rate, tranche_size):
     monthly_rate = rate / 12
     payment = balance * monthly_rate / (1 - (1 + monthly_rate) ** -term)
     remaining = balance
-    cf = []
+    cf_principal = []
+    cf_interest = []
     for t in range(1, term + 1):
         interest = remaining * monthly_rate
         principal = payment - interest
@@ -19,12 +20,23 @@ def calc_tranche_cf(balance, rate, term, def_rate, prepay_rate, tranche_size):
         default = remaining * def_rate
         total_principal = min(principal + prepay, remaining)
         remaining -= (total_principal + default)
-        cf.append(min(total_principal + interest, tranche_size))
+        total_cf = min(total_principal + interest, tranche_size)
+        # Apportion principal and interest within the cap
+        if total_cf < tranche_size:
+            cf_principal.append(total_principal)
+            cf_interest.append(interest)
+        else:
+            interest_fraction = interest / (total_principal + interest)
+            cf_interest.append(tranche_size * interest_fraction)
+            cf_principal.append(tranche_size * (1 - interest_fraction))
         if remaining <= 0:
             break
-    return cf[:term] if len(cf) < term else cf
+    # Pad with zeros if shorter than term
+    cf_principal.extend([0] * (term - len(cf_principal)))
+    cf_interest.extend([0] * (term - len(cf_interest)))
+    return cf_principal[:term], cf_interest[:term]
 
-# Step 2: Define plotting and update logic
+# Step 2: Define plotting and update logic (enhanced plotting)
 def refresh_output():
     try:
         bal = float(ent_bal.get())
@@ -41,26 +53,37 @@ def refresh_output():
             raise ValueError("Default and prepayment rates cannot be negative")
 
         # Step 4: Compute cash flows
-        cash_flows = calc_tranche_cf(bal, rt, trm, dr, pr, ts)
-        months = np.arange(1, len(cash_flows) + 1)
-        total_cf = sum(cash_flows)
+        cf_principal, cf_interest = calc_tranche_cf(bal, rt, trm, dr, pr, ts)
+        months = np.arange(1, len(cf_principal) + 1)
+        total_cf = sum(cf_principal) + sum(cf_interest)
 
         # Step 5: Update display labels
         lbl_tot.config(text=f"Total CF: ${total_cf:.2f}")
-        lbl_avg.config(text=f"Avg CF: ${total_cf / len(cash_flows):.2f}")
+        lbl_avg.config(text=f"Avg CF: ${total_cf / len(cf_principal):.2f}")
 
         # Step 6: Generate and update plot
         ax.clear()
-        ax.plot(months, cash_flows, color='#FF6B6B', lw=2, label='Cash Flow')
-        ax.axhline(ts, color='#888888', ls='--', alpha=0.6, label=f'Tranche Size={ts}')
-        ax.set_xlabel('Month', color='white')
-        ax.set_ylabel('Cash Flow', color='white')
-        ax.set_title('Tranche Cash Flow Waterfall', color='white')
+        ax.stackplot(months, cf_principal, cf_interest, labels=['Principal', 'Interest'],
+                     colors=['#4ECDC4', '#45B7D1'], alpha=0.8)
+        ax.axhline(ts, color='#FF6B6B', ls='--', lw=2, label=f'Tranche Size={ts}')
+        ax.set_xlabel('Month', fontsize=12, color='white')
+        ax.set_ylabel('Cash Flow ($)', fontsize=12, color='white')
+        ax.set_title('Tranche Cash Flow Waterfall', fontsize=14, color='white', pad=10)
         ax.set_facecolor('#2B2B2B')
         fig.set_facecolor('#1E1E1E')
-        ax.grid(True, ls='--', color='#555555', alpha=0.5)
-        ax.legend(facecolor='#333333', edgecolor='white', labelcolor='white')
-        ax.tick_params(colors='white')
+        ax.grid(True, ls='--', color='#555555', alpha=0.3)
+        ax.legend(loc='upper right', facecolor='#333333', edgecolor='white', 
+                  labelcolor='white', fontsize=10, framealpha=0.7)
+        ax.tick_params(colors='white', labelsize=10)
+        
+        # Add annotation for tranche cap intersection (first point where total CF = tranche size)
+        total_cf = np.array(cf_principal) + np.array(cf_interest)
+        cap_idx = np.argmax(total_cf >= ts) if np.any(total_cf >= ts) else -1
+        if cap_idx >= 0:
+            ax.annotate(f'Cap at {ts:.0f}', xy=(months[cap_idx], ts), xytext=(months[cap_idx] + 10, ts + 500),
+                        arrowprops=dict(facecolor='white', shrink=0.05, alpha=0.7),
+                        color='white', fontsize=9, bbox=dict(boxstyle="round,pad=0.3", fc="#444444", ec="white", alpha=0.8))
+
         canv.draw()
 
     except ValueError as err:
