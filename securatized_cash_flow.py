@@ -36,7 +36,7 @@ def calc_tranche_cf(balance, rate, term, def_rate, prepay_rate, tranche_size):
     cf_interest.extend([0] * (term - len(cf_interest)))
     return cf_principal[:term], cf_interest[:term]
 
-# Step 2: Define plotting and update logic (enhanced plotting)
+# Step 2: Define plot
 def refresh_output():
     try:
         bal = float(ent_bal.get())
@@ -61,7 +61,7 @@ def refresh_output():
         lbl_tot.config(text=f"Total CF: ${total_cf:.2f}")
         lbl_avg.config(text=f"Avg CF: ${total_cf / len(cf_principal):.2f}")
 
-        # Step 6: Generate and update plot
+        # Step 6: Generate plot
         ax.clear()
         ax.stackplot(months, cf_principal, cf_interest, labels=['Principal', 'Interest'],
                      colors=['#4ECDC4', '#45B7D1'], alpha=0.8)
