@@ -27,3 +27,5 @@
 - **Visualization**: Displays a real-time cash flow waterfall plot with tranche size reference line.
 - **Metrics**: Shows total and average cash flows for the tranche.
 
+## Screenshots
+![PLOT](output_.png)
